@@ -1,11 +1,684 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
-</html>
+<html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智能计算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6b7280',
+                        secondary: '#9ca3af',
+                        accent: '#4b5563',
+                        light: '#f3f4f6',
+                        dark: '#1f2937'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    animation: {
+                        'pulse-light': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-shadow {
+                box-shadow: 0 4px 0 0 rgba(0, 0, 0, 0.2);
+            }
+            .btn-active {
+                transform: translateY(4px);
+                box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2);
+            }
+            .display-shadow {
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .glass-effect {
+                background: rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+        }
+    </style>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior: none;
+            background-color: #f3f4f6;
+            background-image: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        }
+        
+        .calculator-container {
+            max-width: 420px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #f3f4f6;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .time-display {
+            padding: 1rem;
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+            color: white;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .date-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 0.5rem;
+            align-items: center;
+        }
+        
+        .display {
+            background-color: #ffffff;
+            border-radius: 12px;
+            margin: 1rem;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .history-display {
+            flex: 1;
+            font-size: 0.875rem;
+            color: #6b7280;
+            overflow-y: auto;
+            max-height: 90px;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+        
+        .current-calculation {
+            font-size: 1.25rem;
+            color: #374151;
+            min-height: 2rem;
+            text-align: right;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .result-display {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+            text-align: right;
+            padding: 0.5rem 0;
+            min-height: 2.5rem;
+        }
+        
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+            padding: 1rem;
+            flex: 1;
+        }
+        
+        .btn {
+            border-radius: 12px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.1s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            min-height: 60px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.1);
+            background-color: #e5e7eb;
+        }
+        
+        .btn-operator:active {
+            background-color: #4b5563;
+        }
+        
+        .btn-function:active {
+            background-color: #8b949e;
+        }
+        
+        .btn-equals:active {
+            background-color: #374151;
+        }
+        
+        .btn-number {
+            background-color: white;
+            color: #111827;
+        }
+        
+        .btn-operator {
+            background-color: #6b7280;
+            color: white;
+        }
+        
+        .btn-function {
+            background-color: #9ca3af;
+            color: #1f2937;
+        }
+        
+        .btn-equals {
+            background-color: #4b5563;
+            color: white;
+        }
+        
+        .btn-dot {
+            background-color: white;
+            color: #111827;
+        }
+        
+        .history-item {
+            padding: 0.25rem 0;
+            border-bottom: 1px dashed #e5e7eb;
+            text-align: right;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+        
+        /* 隐藏滚动条但保留滚动功能 */
+        .history-display::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .history-display {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 360px) {
+            .btn {
+                min-height: 50px;
+                font-size: 1.1rem;
+            }
+            
+            .display {
+                min-height: 160px;
+            }
+            
+            .result-display {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-blue-50 to-blue-100">
+    <div class="calculator-container">
+        <!-- 时间日期显示区 -->
+        <div class="time-display">
+            <div id="current-time" class="text-2xl font-bold"></div>
+            <div class="date-container">
+                <div id="current-date" class="text-sm"></div>
+                <div id="author" class="text-xs opacity-80">作者：曹井祥</div>
+                <div id="lunar-date" class="text-xs opacity-80"></div>
+            </div>
+        </div>
+        
+        <!-- 计算器显示屏 -->
+        <div class="display display-shadow">
+            <!-- 历史计算记录 -->
+            <div class="history-display" id="history-display">
+                <!-- 历史记录将在这里动态添加 -->
+            </div>
+            
+            <!-- 当前计算记录 -->
+            <div class="current-calculation" id="current-calculation">0</div>
+            
+            <!-- 当前按键和计算结果 -->
+            <div class="result-display" id="result-display">0</div>
+        </div>
+        
+        <!-- 按键区 -->
+        <div class="buttons">
+            <button class="btn btn-function" data-action="clear">C</button>
+            <button class="btn btn-function" data-action="clear-entry">CE</button>
+            <button class="btn btn-operator" data-action="backspace">
+                <span class="text-xl">←</span>
+                <span class="sr-only">退格</span>
+            </button>
+            <button class="btn btn-operator" data-value="/">÷</button>
+            
+            <button class="btn btn-number" data-value="7">7</button>
+            <button class="btn btn-number" data-value="8">8</button>
+            <button class="btn btn-number" data-value="9">9</button>
+            <button class="btn btn-operator" data-value="*">×</button>
+            
+            <button class="btn btn-number" data-value="4">4</button>
+            <button class="btn btn-number" data-value="5">5</button>
+            <button class="btn btn-number" data-value="6">6</button>
+            <button class="btn btn-operator" data-value="-">-</button>
+            
+            <button class="btn btn-number" data-value="1">1</button>
+            <button class="btn btn-number" data-value="2">2</button>
+            <button class="btn btn-number" data-value="3">3</button>
+            <button class="btn btn-operator" data-value="+">+</button>
+            
+            <button class="btn btn-number" data-value="0">0</button>
+            <button class="btn btn-dot" data-value=".">.</button>
+            <button class="btn btn-operator" data-action="toggle-sign" id="toggle-sign">±</button>
+            <button class="btn btn-equals" data-action="calculate">=</button>
+        </div>
+    </div>
+
+    <script>
+        // 农历日期转换函数
+        function solarToLunar(solarDate) {
+            const year = solarDate.getFullYear();
+            const month = solarDate.getMonth() + 1;
+            const day = solarDate.getDate();
+            
+            // 简化版农历转换，实际应用中可能需要更复杂的算法或库
+            const lunarMonths = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
+            const lunarDays = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
+                              '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
+                              '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+            
+            // 这里使用简化的转换，实际应用中应使用更准确的农历算法
+            // 以下为示例，不代表真实的农历日期
+            const lunarMonth = lunarMonths[month - 1];
+            const lunarDay = lunarDays[day - 1];
+            
+            return `${year}年${lunarMonth}月${lunarDay}`;
+        }
+        
+        // 更新时间和日期
+        function updateDateTime() {
+            const now = new Date();
+            const timeElement = document.getElementById('current-time');
+            const dateElement = document.getElementById('current-date');
+            const lunarElement = document.getElementById('lunar-date');
+            
+            // 更新时间
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            timeElement.textContent = `${hours}:${minutes}:${seconds}`;
+            
+            // 更新阳历日期
+            const year = now.getFullYear();
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+            const weekday = weekdays[now.getDay()];
+            dateElement.textContent = `${year}-${month}-${day} ${weekday}`;
+            
+            // 更新农历日期
+            lunarElement.textContent = `农历 ${solarToLunar(now)}`;
+        }
+        
+        // 语音播报函数
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                // 停止之前的语音
+                window.speechSynthesis.cancel();
+                
+                // 创建新的语音
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9; // 语速稍慢，更清晰
+                utterance.pitch = 1;
+                
+                // 播报
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        // 计算器类
+        class Calculator {
+            constructor() {
+                this.currentInput = '0';
+                this.previousInput = '';
+                this.operator = null;
+                this.waitingForNewInput = false;
+                this.history = [];
+                
+                this.currentCalculationElement = document.getElementById('current-calculation');
+                this.resultDisplayElement = document.getElementById('result-display');
+                this.historyDisplayElement = document.getElementById('history-display');
+                
+                this.initializeEventListeners();
+                this.updateDisplay();
+            }
+            
+            initializeEventListeners() {
+                const buttons = document.querySelectorAll('.btn');
+                
+                buttons.forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const value = e.target.getAttribute('data-value');
+                        const action = e.target.getAttribute('data-action');
+                        
+                        if (value !== null) {
+                            if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(value)) {
+                                this.inputNumber(value);
+                                speak(value);
+                            } else if (value === '.') {
+                                this.inputDecimal();
+                                speak('点');
+                            } else {
+                                this.inputOperator(value);
+                                // 播报运算符
+                                const operatorMap = {
+                                    '+': '加',
+                                    '-': '减',
+                                    '*': '乘',
+                                    '/': '除'
+                                };
+                                speak(operatorMap[value] || value);
+                            }
+                        } else if (action !== null) {
+                            switch (action) {
+                                case 'clear':
+                                    this.clear();
+                                    speak('清除');
+                                    break;
+                                case 'clear-entry':
+                                    this.clearEntry();
+                                    speak('清除输入');
+                                    break;
+                                case 'backspace':
+                                    this.backspace();
+                                    speak('退格');
+                                    break;
+                                case 'calculate':
+                                    this.calculate();
+                                    break;
+                                case 'toggle-sign':
+                                    this.toggleSign();
+                                    speak('正负号');
+                                    break;
+                            }
+                        }
+                        
+                        // 添加按钮点击动画效果
+                        e.target.classList.add('btn-active');
+                        setTimeout(() => {
+                            e.target.classList.remove('btn-active');
+                        }, 100);
+                    });
+                });
+                
+                // 键盘支持
+                document.addEventListener('keydown', (e) => {
+                    const key = e.key;
+                    
+                    if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(key)) {
+                        this.inputNumber(key);
+                        speak(key);
+                    } else if (key === '.') {
+                        this.inputDecimal();
+                        speak('点');
+                    } else if (['+', '-', '*', '/'].includes(key)) {
+                        this.inputOperator(key);
+                        const operatorMap = {
+                            '+': '加',
+                            '-': '减',
+                            '*': '乘',
+                            '/': '除'
+                        };
+                        speak(operatorMap[key] || key);
+                    } else if (key === 'Enter' || key === '=') {
+                        this.calculate();
+                        e.preventDefault();
+                    } else if (key === 'Escape') {
+                        this.clear();
+                        speak('清除');
+                        e.preventDefault();
+                    } else if (key === 'Backspace') {
+                        this.backspace();
+                        speak('退格');
+                        e.preventDefault();
+                    }
+                });
+            }
+            
+            inputNumber(num) {
+                if (this.waitingForNewInput) {
+                    this.currentInput = num;
+                    this.waitingForNewInput = false;
+                } else {
+                    this.currentInput = this.currentInput === '0' ? num : this.currentInput + num;
+                }
+                this.updateDisplay();
+            }
+            
+            inputDecimal() {
+                if (this.waitingForNewInput) {
+                    this.currentInput = '0.';
+                    this.waitingForNewInput = false;
+                } else if (this.currentInput.indexOf('.') === -1) {
+                    this.currentInput += '.';
+                }
+                this.updateDisplay();
+            }
+            
+            inputOperator(nextOperator) {
+                const inputValue = parseFloat(this.currentInput);
+                
+                if (this.previousInput === '') {
+                    this.previousInput = inputValue;
+                } else if (this.operator) {
+                    const currentValue = this.previousInput || 0;
+                    const result = this.performCalculation(currentValue, inputValue, this.operator);
+                    
+                    this.currentInput = String(result);
+                    this.previousInput = result;
+                    
+                    // 添加到历史记录
+                    this.addToHistory(`${currentValue} ${this.getOperatorSymbol(this.operator)} ${inputValue} = ${result}`);
+                }
+                
+                this.waitingForNewInput = true;
+                this.operator = nextOperator;
+                this.updateDisplay();
+            }
+            
+            calculate() {
+                const inputValue = parseFloat(this.currentInput);
+                
+                if (this.previousInput === '' || this.waitingForNewInput) {
+                    return;
+                }
+                
+                const result = this.performCalculation(this.previousInput, inputValue, this.operator);
+                
+                // 添加到历史记录
+                this.addToHistory(`${this.previousInput} ${this.getOperatorSymbol(this.operator)} ${inputValue} = ${result}`);
+                
+                // 播报结果
+                speak(`等于 ${result}`);
+                
+                this.currentInput = String(result);
+                this.previousInput = '';
+                this.operator = null;
+                this.waitingForNewInput = true;
+                this.updateDisplay();
+            }
+            
+            performCalculation(firstValue, secondValue, operator) {
+                switch (operator) {
+                    case '+':
+                        return firstValue + secondValue;
+                    case '-':
+                        return firstValue - secondValue;
+                    case '*':
+                        return firstValue * secondValue;
+                    case '/':
+                        if (secondValue === 0) {
+                            speak('错误，除数不能为零');
+                            return 'Error';
+                        }
+                        return firstValue / secondValue;
+                    default:
+                        return secondValue;
+                }
+            }
+            
+            getOperatorSymbol(operator) {
+                switch (operator) {
+                    case '+': return '+';
+                    case '-': return '-';
+                    case '*': return '×';
+                    case '/': return '÷';
+                    default: return '';
+                }
+            }
+            
+            clear() {
+                this.currentInput = '0';
+                this.previousInput = '';
+                this.operator = null;
+                this.waitingForNewInput = false;
+                this.updateDisplay();
+            }
+            
+            clearEntry() {
+                this.currentInput = '0';
+                this.updateDisplay();
+            }
+            
+            backspace() {
+                if (this.waitingForNewInput) {
+                    return;
+                }
+                
+                this.currentInput = this.currentInput.length > 1 
+                    ? this.currentInput.slice(0, -1) 
+                    : '0';
+                
+                this.updateDisplay();
+            }
+            
+            toggleSign() {
+                if (this.currentInput !== '0' && this.currentInput !== 'Error') {
+                    this.currentInput = this.currentInput.charAt(0) === '-' 
+                        ? this.currentInput.slice(1) 
+                        : '-' + this.currentInput;
+                    
+                    this.updateDisplay();
+                }
+            }
+            
+            addToHistory(calculation) {
+                this.history.push(calculation);
+                
+                // 限制历史记录数量
+                if (this.history.length > 10) {
+                    this.history.shift();
+                }
+                
+                this.updateHistoryDisplay();
+            }
+            
+            updateHistoryDisplay() {
+                this.historyDisplayElement.innerHTML = '';
+                
+                // 反向遍历历史记录，最新的在最上面
+                for (let i = this.history.length - 1; i >= 0; i--) {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item fade-in';
+                    historyItem.textContent = this.history[i];
+                    this.historyDisplayElement.appendChild(historyItem);
+                }
+            }
+            
+            updateDisplay() {
+                // 更新当前计算显示
+                let calculationText = '';
+                
+                if (this.previousInput !== '') {
+                    calculationText = `${this.previousInput} ${this.getOperatorSymbol(this.operator)}`;
+                    
+                    if (!this.waitingForNewInput) {
+                        calculationText += ` ${this.currentInput}`;
+                    }
+                } else {
+                    // 当没有之前的输入时，显示当前输入的数字
+                    calculationText = this.currentInput !== '0' ? this.currentInput : '';
+                }
+                
+                this.currentCalculationElement.textContent = calculationText || '0';
+                
+                // 更新结果显示
+                this.resultDisplayElement.textContent = this.currentInput;
+                
+                // 添加动画效果
+                this.resultDisplayElement.classList.add('fade-in');
+                setTimeout(() => {
+                    this.resultDisplayElement.classList.remove('fade-in');
+                }, 300);
+            }
+        }
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化计算器
+            const calculator = new Calculator();
+            
+            // 更新时间和日期
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            // 防止页面滚动
+            document.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+            
+            // 防止长按弹出菜单
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(button => {
+                button.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+            });
+        });
+    </script>
+
+</body></html>
