@@ -1,11 +1,1499 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手机屏幕自动点击工具</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            dark: '#1F2937',
+            light: '#F3F4F6'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      .shadow-soft {
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+      }
+      .btn-3d {
+        transform: translateY(-2px);
+        transition: all 0.2s ease;
+      }
+      .btn-3d:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+      .ripple {
+        position: relative;
+        overflow: hidden;
+      }
+      .ripple:after {
+        content: "";
+        display: block;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+        background-repeat: no-repeat;
+        background-position: 50%;
+        transform: scale(10, 10);
+        opacity: 0;
+        transition: transform .5s, opacity 1s;
+      }
+      .ripple:active:after {
+        transform: scale(0, 0);
+        opacity: .3;
+        transition: 0s;
+      }
+      .slider-thumb::-webkit-slider-thumb {
+        @apply appearance-none w-6 h-6 rounded-full bg-primary border-2 border-white cursor-pointer shadow-md;
+      }
+      .slider-track {
+        @apply appearance-none h-2 rounded-full bg-gray-200;
+      }
+      .slider-track::-webkit-slider-runnable-track {
+        @apply h-2 rounded-full;
+      }
+      .operation-point {
+        @apply absolute w-6 h-6 rounded-full bg-primary border-2 border-white shadow-lg transform -translate-x-1/2 -translate-y-1/2 cursor-move transition-all duration-200;
+      }
+      .operation-point:hover {
+        @apply w-8 h-8 z-10;
+      }
+      .operation-point.active {
+        @apply bg-secondary;
+      }
+      .operation-point.tap {
+        @apply bg-primary;
+      }
+      .operation-point.long-press {
+        @apply bg-secondary;
+      }
+      .operation-point.swipe {
+        @apply bg-warning;
+      }
+      .swipe-line {
+        @apply absolute h-0.5 bg-warning;
+        transform-origin: left center;
+      }
+      .phone-frame {
+        @apply relative mx-auto bg-white rounded-[36px] shadow-2xl overflow-hidden border-8 border-dark;
+        width: 280px;
+        height: 560px;
+      }
+      .phone-screen {
+        @apply relative w-full h-full overflow-hidden bg-gray-100;
+      }
+      .phone-notch {
+        @apply absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-dark rounded-b-xl z-10;
+      }
+      .phone-home {
+        @apply absolute bottom-4 left-1/2 transform -translate-x-1/2 w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer;
+      }
+      .operation-list-item {
+        @apply flex items-center p-3 border-b border-gray-200 hover:bg-gray-50 transition-colors;
+      }
+      .operation-list-item.active {
+        @apply bg-blue-50;
+      }
+      .tab-button {
+        @apply px-4 py-2 font-medium rounded-t-lg transition-colors;
+      }
+      .tab-button.active {
+        @apply bg-white text-primary border-b-2 border-primary;
+      }
+      .tab-button:not(.active) {
+        @apply bg-gray-100 text-gray-600 hover:bg-gray-200;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-dark">
+  <!-- 顶部导航栏 -->
+  <header class="bg-white shadow-sm">
+    <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/0f864fd88e6b4e6db72754a4160ae744~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=2026040815410177FA90CB8F7B3E2DAB3F&rrcfp=f06b921b&x-expires=1778226125&x-signature=ORpodd7qzqjuz0os5SL4mHCK58Y%3D" alt="Logo" class="w-10 h-10">
+        <h1 class="text-xl font-bold text-primary">手机屏幕自动点击工具</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button id="saveSequenceBtn" class="px-3 py-1.5 bg-primary text-white rounded-md flex items-center space-x-1 btn-3d shadow-md">
+          <i class="fa fa-save"></i>
+          <span>保存序列</span>
+        </button>
+        <button id="loadSequenceBtn" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md flex items-center space-x-1 btn-3d shadow-sm">
+          <i class="fa fa-folder-open"></i>
+          <span>加载序列</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="container mx-auto px-4 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- 左侧：手机模拟区域 -->
+      <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-soft p-6">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-mobile text-primary mr-2"></i>
+            手机屏幕模拟
+          </h2>
+          
+          <div class="phone-frame mx-auto">
+            <div class="phone-notch"></div>
+            <div id="phoneScreen" class="phone-screen">
+              <!-- 操作点将在这里动态添加 -->
+            </div>
+            <div class="phone-home">
+              <div class="w-8 h-8 rounded-full border-2 border-gray-400"></div>
+            </div>
+          </div>
+          
+          <div class="mt-6 space-y-4">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">屏幕尺寸:</span>
+              <select id="screenSizeSelect" class="px-3 py-1.5 border border-gray-300 rounded-md text-sm">
+                <option value="small">小屏 (280×560)</option>
+                <option value="medium" selected>中屏 (320×640)</option>
+                <option value="large">大屏 (360×720)</option>
+              </select>
+            </div>
+            
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">背景颜色:</span>
+              <div class="flex space-x-2">
+                <button class="w-6 h-6 rounded-full bg-gray-100 border border-gray-300 screen-bg-btn" data-color="#f3f4f6"></button>
+                <button class="w-6 h-6 rounded-full bg-blue-100 border border-gray-300 screen-bg-btn" data-color="#dbeafe"></button>
+                <button class="w-6 h-6 rounded-full bg-green-100 border border-gray-300 screen-bg-btn" data-color="#d1fae5"></button>
+                <button class="w-6 h-6 rounded-full bg-yellow-100 border border-gray-300 screen-bg-btn" data-color="#fef3c7"></button>
+                <input type="color" id="customBgColor" class="w-6 h-6 rounded-full cursor-pointer" value="#f3f4f6">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 中间：操作设置区 -->
+      <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-soft p-6">
+          <div class="flex border-b border-gray-200 mb-4">
+            <button class="tab-button active" data-tab="tap">
+              <img src="https://p6-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/6bc8d04769bc47459e0e44df95dda27e~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=2026040815410177FA90CB8F7B3E2DAB3F&rrcfp=f06b921b&x-expires=1778226109&x-signature=ml36YqgLFD0IFxW9%2FoFh3KLfZ34%3D" alt="点击" class="w-5 h-5 inline-block mr-1">
+              点击
+            </button>
+            <button class="tab-button" data-tab="longPress">
+              <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/f062b740438e48d8844a6666e9d28914~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=2026040815410177FA90CB8F7B3E2DAB3F&rrcfp=f06b921b&x-expires=1778226109&x-signature=BE6bZaPg9SZj5x5TlCtPksHF1AE%3D" alt="长按" class="w-5 h-5 inline-block mr-1">
+              长按
+            </button>
+            <button class="tab-button" data-tab="swipe">
+              <img src="https://p11-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/c30db2b025754d4f8ab02d8d4489c182~tplv-a9rns2rl98-image.image?lk3s=8e244e95&rcl=2026040815410177FA90CB8F7B3E2DAB3F&rrcfp=f06b921b&x-expires=1778226109&x-signature=jnDyT3a5aejt%2BvOhUsrBFIX79LQ%3D" alt="滑动" class="w-5 h-5 inline-block mr-1">
+              滑动
+            </button>
+          </div>
+          
+          <!-- 点击设置 -->
+          <div id="tapSettings" class="tab-content">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">点击频率 (次/秒)</label>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="tapFrequency" min="0.1" max="10" step="0.1" value="1" class="slider-track slider-thumb flex-1">
+                  <span id="tapFrequencyValue" class="text-sm font-medium w-10 text-center">1</span>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">点击次数</label>
+                <div class="flex items-center space-x-3">
+                  <input type="number" id="tapCount" min="1" max="9999" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="infiniteTap" class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    <span class="ml-2 text-sm font-medium text-gray-700">无限循环</span>
+                  </label>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">点击延迟 (秒)</label>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="tapDelay" min="0" max="5" step="0.1" value="0" class="slider-track slider-thumb flex-1">
+                  <span id="tapDelayValue" class="text-sm font-medium w-10 text-center">0</span>
+                </div>
+              </div>
+              
+              <button id="addTapBtn" class="w-full py-2 bg-primary text-white rounded-md hover:bg-blue-600 transition-colors btn-3d shadow-md">
+                添加点击操作
+              </button>
+            </div>
+          </div>
+          
+          <!-- 长按设置 -->
+          <div id="longPressSettings" class="tab-content hidden">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">长按时间 (秒)</label>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="longPressDuration" min="0.5" max="10" step="0.1" value="2" class="slider-track slider-thumb flex-1">
+                  <span id="longPressDurationValue" class="text-sm font-medium w-10 text-center">2</span>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">长按延迟 (秒)</label>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="longPressDelay" min="0" max="5" step="0.1" value="0" class="slider-track slider-thumb flex-1">
+                  <span id="longPressDelayValue" class="text-sm font-medium w-10 text-center">0</span>
+                </div>
+              </div>
+              
+              <button id="addLongPressBtn" class="w-full py-2 bg-secondary text-white rounded-md hover:bg-green-600 transition-colors btn-3d shadow-md">
+                添加长按操作
+              </button>
+            </div>
+          </div>
+          
+          <!-- 滑动设置 -->
+          <div id="swipeSettings" class="tab-content hidden">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">滑动速度 (像素/秒)</label>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="swipeSpeed" min="50" max="1000" step="10" value="300" class="slider-track slider-thumb flex-1">
+                  <span id="swipeSpeedValue" class="text-sm font-medium w-16 text-center">300</span>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">滑动次数</label>
+                <div class="flex items-center space-x-3">
+                  <input type="number" id="swipeCount" min="1" max="9999" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                  <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="infiniteSwipe" class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    <span class="ml-2 text-sm font-medium text-gray-700">无限循环</span>
+                  </label>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">滑动延迟 (秒)</label>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="swipeDelay" min="0" max="5" step="0.1" value="0" class="slider-track slider-thumb flex-1">
+                  <span id="swipeDelayValue" class="text-sm font-medium w-10 text-center">0</span>
+                </div>
+              </div>
+              
+              <div class="p-3 bg-blue-50 rounded-md text-sm text-blue-700">
+                <p class="font-medium mb-1">使用说明:</p>
+                <ol class="list-decimal list-inside space-y-1">
+                  <li>点击"添加滑动操作"按钮</li>
+                  <li>在手机屏幕上点击第一个点作为滑动起点</li>
+                  <li>在手机屏幕上点击第二个点作为滑动终点</li>
+                </ol>
+              </div>
+              
+              <button id="addSwipeBtn" class="w-full py-2 bg-warning text-white rounded-md hover:bg-amber-600 transition-colors btn-3d shadow-md">
+                添加滑动操作
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧：操作序列和控制区 -->
+      <div class="lg:col-span-1">
+        <!-- 操作序列列表 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 mb-6">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-list text-primary mr-2"></i>
+            操作序列
+          </h2>
+          
+          <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
+            <ul id="operationList" class="divide-y divide-gray-200">
+              <!-- 操作序列项将在这里动态添加 -->
+              <li class="p-4 text-center text-gray-500">暂无操作，请添加操作</li>
+            </ul>
+          </div>
+          
+          <div class="mt-4 flex space-x-2">
+            <button id="clearOperationsBtn" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+              清空序列
+            </button>
+            <button id="deleteSelectedBtn" class="flex-1 py-2 bg-danger text-white rounded-md hover:bg-red-600 transition-colors">
+              删除选中
+            </button>
+          </div>
+        </div>
+        
+        <!-- 全局设置 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 mb-6">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-cog text-primary mr-2"></i>
+            全局设置
+          </h2>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">全局循环次数</label>
+              <div class="flex items-center space-x-3">
+                <input type="number" id="globalLoopCount" min="1" max="9999" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="infiniteLoop" class="sr-only peer">
+                  <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  <span class="ml-2 text-sm font-medium text-gray-700">无限</span>
+                </label>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">操作间隔 (秒)</label>
+              <div class="flex items-center space-x-3">
+                <input type="range" id="operationInterval" min="0" max="5" step="0.1" value="0.5" class="slider-track slider-thumb flex-1">
+                <span id="operationIntervalValue" class="text-sm font-medium w-10 text-center">0.5</span>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">定时执行</label>
+              <div class="flex items-center space-x-3">
+                <input type="time" id="scheduleTime" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="enableSchedule" class="sr-only peer">
+                  <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 控制中心 -->
+        <div class="bg-white rounded-xl shadow-soft p-6">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-play-circle text-primary mr-2"></i>
+            控制中心
+          </h2>
+          
+          <div class="space-y-4">
+            <div class="h-4 bg-gray-200 rounded-full overflow-hidden">
+              <div id="progressBar" class="h-full bg-primary transition-all duration-300" style="width: 0%"></div>
+            </div>
+            
+            <div class="flex justify-between text-sm text-gray-600">
+              <span id="statusText">就绪</span>
+              <span id="progressText">0%</span>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2">
+              <button id="startBtn" class="py-3 bg-primary text-white rounded-md hover:bg-blue-600 transition-colors flex flex-col items-center justify-center btn-3d shadow-md">
+                <i class="fa fa-play text-lg"></i>
+                <span class="text-xs mt-1">开始</span>
+              </button>
+              <button id="pauseBtn" class="py-3 bg-warning text-white rounded-md hover:bg-amber-600 transition-colors flex flex-col items-center justify-center btn-3d shadow-md" disabled>
+                <i class="fa fa-pause text-lg"></i>
+                <span class="text-xs mt-1">暂停</span>
+              </button>
+              <button id="stopBtn" class="py-3 bg-danger text-white rounded-md hover:bg-red-600 transition-colors flex flex-col items-center justify-center btn-3d shadow-md" disabled>
+                <i class="fa fa-stop text-lg"></i>
+                <span class="text-xs mt-1">停止</span>
+              </button>
+            </div>
+            
+            <button id="exportBtn" class="w-full py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors flex items-center justify-center space-x-2">
+              <i class="fa fa-download"></i>
+              <span>导出操作序列</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 底部信息 -->
+  <footer class="bg-white border-t border-gray-200 mt-8">
+    <div class="container mx-auto px-4 py-4 text-center text-sm text-gray-600">
+      <p>手机屏幕自动点击工具 &copy; 2025</p>
+    </div>
+  </footer>
+
+  <!-- 模态框 -->
+  <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modalTitle" class="text-lg font-semibold">模态框标题</h3>
+        <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div id="modalContent" class="mb-6">
+        <!-- 模态框内容将在这里动态添加 -->
+      </div>
+      <div class="flex justify-end space-x-3">
+        <button id="modalCancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+          取消
+        </button>
+        <button id="modalConfirm" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-600 transition-colors">
+          确认
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 全局变量
+    let operations = [];
+    let operationIdCounter = 1;
+    let isRunning = false;
+    let isPaused = false;
+    let currentOperationIndex = 0;
+    let currentLoopIndex = 0;
+    let operationTimer = null;
+    let scheduleTimer = null;
+    let selectedOperationId = null;
+    let isAddingSwipe = false;
+    let swipeStartPoint = null;
+    
+    // DOM 元素
+    const phoneScreen = document.getElementById('phoneScreen');
+    const operationList = document.getElementById('operationList');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const statusText = document.getElementById('statusText');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const modal = document.getElementById('modal');
+    
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      initTabSwitching();
+      initSliders();
+      initButtons();
+      initPhoneScreen();
+      initModal();
+      updateOperationList();
+    });
+    
+    // 标签页切换
+    function initTabSwitching() {
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+      
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const tabId = button.getAttribute('data-tab');
+          
+          // 更新标签按钮状态
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+          
+          // 更新内容显示
+          tabContents.forEach(content => content.classList.add('hidden'));
+          document.getElementById(`${tabId}Settings`).classList.remove('hidden');
+        });
+      });
+    }
+    
+    // 初始化滑块
+    function initSliders() {
+      // 点击频率滑块
+      const tapFrequency = document.getElementById('tapFrequency');
+      const tapFrequencyValue = document.getElementById('tapFrequencyValue');
+      tapFrequency.addEventListener('input', () => {
+        tapFrequencyValue.textContent = tapFrequency.value;
+      });
+      
+      // 点击延迟滑块
+      const tapDelay = document.getElementById('tapDelay');
+      const tapDelayValue = document.getElementById('tapDelayValue');
+      tapDelay.addEventListener('input', () => {
+        tapDelayValue.textContent = tapDelay.value;
+      });
+      
+      // 长按时间滑块
+      const longPressDuration = document.getElementById('longPressDuration');
+      const longPressDurationValue = document.getElementById('longPressDurationValue');
+      longPressDuration.addEventListener('input', () => {
+        longPressDurationValue.textContent = longPressDuration.value;
+      });
+      
+      // 长按延迟滑块
+      const longPressDelay = document.getElementById('longPressDelay');
+      const longPressDelayValue = document.getElementById('longPressDelayValue');
+      longPressDelay.addEventListener('input', () => {
+        longPressDelayValue.textContent = longPressDelay.value;
+      });
+      
+      // 滑动速度滑块
+      const swipeSpeed = document.getElementById('swipeSpeed');
+      const swipeSpeedValue = document.getElementById('swipeSpeedValue');
+      swipeSpeed.addEventListener('input', () => {
+        swipeSpeedValue.textContent = swipeSpeed.value;
+      });
+      
+      // 操作间隔滑块
+      const operationInterval = document.getElementById('operationInterval');
+      const operationIntervalValue = document.getElementById('operationIntervalValue');
+      operationInterval.addEventListener('input', () => {
+        operationIntervalValue.textContent = operationInterval.value;
+      });
+    }
+    
+    // 初始化按钮
+    function initButtons() {
+      // 添加点击操作按钮
+      document.getElementById('addTapBtn').addEventListener('click', () => {
+        const frequency = parseFloat(document.getElementById('tapFrequency').value);
+        const count = document.getElementById('infiniteTap').checked ? -1 : parseInt(document.getElementById('tapCount').value);
+        const delay = parseFloat(document.getElementById('tapDelay').value);
+        
+        showModal('添加点击操作', `
+          <p class="mb-4">请在手机屏幕上点击要添加点击操作的位置</p>
+          <div class="flex justify-between items-center text-sm text-gray-600">
+            <span>点击频率: ${frequency}次/秒</span>
+            <span>点击次数: ${count === -1 ? '无限' : count}次</span>
+            <span>延迟: ${delay}秒</span>
+          </div>
+        `, () => {
+          phoneScreen.addEventListener('click', addTapOperation.bind(null, frequency, count, delay), { once: true });
+          closeModal();
+        });
+      });
+      
+      // 添加长按操作按钮
+      document.getElementById('addLongPressBtn').addEventListener('click', () => {
+        const duration = parseFloat(document.getElementById('longPressDuration').value);
+        const delay = parseFloat(document.getElementById('longPressDelay').value);
+        
+        showModal('添加长按操作', `
+          <p class="mb-4">请在手机屏幕上点击要添加长按操作的位置</p>
+          <div class="flex justify-between items-center text-sm text-gray-600">
+            <span>长按时间: ${duration}秒</span>
+            <span>延迟: ${delay}秒</span>
+          </div>
+        `, () => {
+          phoneScreen.addEventListener('click', addLongPressOperation.bind(null, duration, delay), { once: true });
+          closeModal();
+        });
+      });
+      
+      // 添加滑动操作按钮
+      document.getElementById('addSwipeBtn').addEventListener('click', () => {
+        const speed = parseInt(document.getElementById('swipeSpeed').value);
+        const count = document.getElementById('infiniteSwipe').checked ? -1 : parseInt(document.getElementById('swipeCount').value);
+        const delay = parseFloat(document.getElementById('swipeDelay').value);
+        
+        showModal('添加滑动操作', `
+          <p class="mb-4">请在手机屏幕上点击滑动的起点位置</p>
+          <div class="flex justify-between items-center text-sm text-gray-600">
+            <span>滑动速度: ${speed}像素/秒</span>
+            <span>滑动次数: ${count === -1 ? '无限' : count}次</span>
+            <span>延迟: ${delay}秒</span>
+          </div>
+        `, () => {
+          isAddingSwipe = true;
+          swipeStartPoint = null;
+          phoneScreen.addEventListener('click', addSwipeOperation.bind(null, speed, count, delay), { once: true });
+          closeModal();
+        });
+      });
+      
+      // 清空操作序列按钮
+      document.getElementById('clearOperationsBtn').addEventListener('click', () => {
+        showModal('清空操作序列', '确定要清空所有操作序列吗？此操作不可撤销。', () => {
+          operations = [];
+          updateOperationList();
+          clearPhoneScreen();
+          closeModal();
+        });
+      });
+      
+      // 删除选中操作按钮
+      document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
+        if (selectedOperationId === null) {
+          showToast('请先选择要删除的操作');
+          return;
+        }
+        
+        showModal('删除操作', '确定要删除选中的操作吗？', () => {
+          operations = operations.filter(op => op.id !== selectedOperationId);
+          updateOperationList();
+          updatePhoneScreen();
+          selectedOperationId = null;
+          closeModal();
+        });
+      });
+      
+      // 开始按钮
+      startBtn.addEventListener('click', startOperations);
+      
+      // 暂停按钮
+      pauseBtn.addEventListener('click', pauseOperations);
+      
+      // 停止按钮
+      stopBtn.addEventListener('click', stopOperations);
+      
+      // 导出按钮
+      document.getElementById('exportBtn').addEventListener('click', exportOperations);
+      
+      // 保存序列按钮
+      document.getElementById('saveSequenceBtn').addEventListener('click', saveSequence);
+      
+      // 加载序列按钮
+      document.getElementById('loadSequenceBtn').addEventListener('click', loadSequence);
+      
+      // 屏幕尺寸选择
+      document.getElementById('screenSizeSelect').addEventListener('change', changeScreenSize);
+      
+      // 背景颜色按钮
+      document.querySelectorAll('.screen-bg-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const color = btn.getAttribute('data-color');
+          phoneScreen.style.backgroundColor = color;
+          document.getElementById('customBgColor').value = hexToRgb(color);
+        });
+      });
+      
+      // 自定义背景颜色
+      document.getElementById('customBgColor').addEventListener('input', (e) => {
+        phoneScreen.style.backgroundColor = e.target.value;
+      });
+    }
+    
+    // 初始化手机屏幕
+    function initPhoneScreen() {
+      // 防止默认的点击行为
+      phoneScreen.addEventListener('contextmenu', e => e.preventDefault());
+    }
+    
+    // 初始化模态框
+    function initModal() {
+      document.getElementById('closeModal').addEventListener('click', closeModal);
+      document.getElementById('modalCancel').addEventListener('click', closeModal);
+    }
+    
+    // 显示模态框
+    function showModal(title, content, confirmCallback) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalContent').innerHTML = content;
+      document.getElementById('modalConfirm').onclick = confirmCallback;
+      modal.classList.remove('hidden');
+    }
+    
+    // 关闭模态框
+    function closeModal() {
+      modal.classList.add('hidden');
+    }
+    
+    // 显示提示信息
+    function showToast(message, duration = 3000) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-dark text-white px-4 py-2 rounded-md shadow-lg z-50';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+        setTimeout(() => {
+          document.body.removeChild(toast);
+        }, 300);
+      }, duration);
+    }
+    
+    // 添加点击操作
+    function addTapOperation(frequency, count, delay, e) {
+      const rect = phoneScreen.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      
+      const operation = {
+        id: operationIdCounter++,
+        type: 'tap',
+        x,
+        y,
+        frequency,
+        count,
+        delay
+      };
+      
+      operations.push(operation);
+      updateOperationList();
+      updatePhoneScreen();
+      
+      showToast('点击操作已添加');
+    }
+    
+    // 添加长按操作
+    function addLongPressOperation(duration, delay, e) {
+      const rect = phoneScreen.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      
+      const operation = {
+        id: operationIdCounter++,
+        type: 'longPress',
+        x,
+        y,
+        duration,
+        delay
+      };
+      
+      operations.push(operation);
+      updateOperationList();
+      updatePhoneScreen();
+      
+      showToast('长按操作已添加');
+    }
+    
+    // 添加滑动操作
+    function addSwipeOperation(speed, count, delay, e) {
+      const rect = phoneScreen.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      
+      if (!swipeStartPoint) {
+        swipeStartPoint = { x, y };
+        showModal('添加滑动操作', `
+          <p class="mb-4">请在手机屏幕上点击滑动的终点位置</p>
+          <div class="flex justify-between items-center text-sm text-gray-600">
+            <span>起点: (${Math.round(x)}%, ${Math.round(y)}%)</span>
+          </div>
+        `, () => {
+          phoneScreen.addEventListener('click', addSwipeOperation.bind(null, speed, count, delay), { once: true });
+          closeModal();
+        });
+      } else {
+        const operation = {
+          id: operationIdCounter++,
+          type: 'swipe',
+          startX: swipeStartPoint.x,
+          startY: swipeStartPoint.y,
+          endX: x,
+          endY: y,
+          speed,
+          count,
+          delay
+        };
+        
+        operations.push(operation);
+        updateOperationList();
+        updatePhoneScreen();
+        
+        isAddingSwipe = false;
+        swipeStartPoint = null;
+        
+        showToast('滑动操作已添加');
+      }
+    }
+    
+    // 更新操作列表
+    function updateOperationList() {
+      if (operations.length === 0) {
+        operationList.innerHTML = '<li class="p-4 text-center text-gray-500">暂无操作，请添加操作</li>';
+        return;
+      }
+      
+      operationList.innerHTML = '';
+      
+      operations.forEach((operation, index) => {
+        const li = document.createElement('li');
+        li.className = `operation-list-item ${selectedOperationId === operation.id ? 'active' : ''}`;
+        li.setAttribute('data-id', operation.id);
+        
+        let icon, color, details;
+        
+        switch (operation.type) {
+          case 'tap':
+            icon = 'fa-hand-pointer-o';
+            color = 'text-primary';
+            details = `点击 (${Math.round(operation.x)}%, ${Math.round(operation.y)}%) - ${operation.frequency}次/秒, ${operation.count === -1 ? '无限' : operation.count}次`;
+            break;
+          case 'longPress':
+            icon = 'fa-hand-paper-o';
+            color = 'text-secondary';
+            details = `长按 (${Math.round(operation.x)}%, ${Math.round(operation.y)}%) - ${operation.duration}秒`;
+            break;
+          case 'swipe':
+            icon = 'fa-arrows';
+            color = 'text-warning';
+            details = `滑动 (${Math.round(operation.startX)}%, ${Math.round(operation.startY)}) → (${Math.round(operation.endX)}%, ${Math.round(operation.endY)}) - ${operation.speed}px/s`;
+            break;
+        }
+        
+        li.innerHTML = `
+          <div class="flex items-center justify-between w-full">
+            <div class="flex items-center">
+              <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-3">
+                <i class="fa ${icon} ${color}"></i>
+              </div>
+              <div>
+                <div class="font-medium">${index + 1}. ${getOperationTypeName(operation.type)}</div>
+                <div class="text-xs text-gray-500">${details}</div>
+              </div>
+            </div>
+            <button class="text-gray-400 hover:text-danger delete-operation" data-id="${operation.id}">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+        `;
+        
+        li.addEventListener('click', (e) => {
+          if (!e.target.closest('.delete-operation')) {
+            selectedOperationId = operation.id;
+            updateOperationList();
+            highlightOperationOnScreen(operation.id);
+          }
+        });
+        
+        operationList.appendChild(li);
+      });
+      
+      // 添加删除按钮事件
+      document.querySelectorAll('.delete-operation').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = parseInt(btn.getAttribute('data-id'));
+          operations = operations.filter(op => op.id !== id);
+          updateOperationList();
+          updatePhoneScreen();
+          if (selectedOperationId === id) {
+            selectedOperationId = null;
+          }
+        });
+      });
+    }
+    
+    // 获取操作类型名称
+    function getOperationTypeName(type) {
+      switch (type) {
+        case 'tap': return '点击';
+        case 'longPress': return '长按';
+        case 'swipe': return '滑动';
+        default: return '未知';
+      }
+    }
+    
+    // 更新手机屏幕上的操作点
+    function updatePhoneScreen() {
+      clearPhoneScreen();
+      
+      operations.forEach(operation => {
+        if (operation.type === 'tap' || operation.type === 'longPress') {
+          const point = document.createElement('div');
+          point.className = `operation-point ${operation.type === 'tap' ? 'tap' : 'long-press'}`;
+          point.style.left = `${operation.x}%`;
+          point.style.top = `${operation.y}%`;
+          point.setAttribute('data-id', operation.id);
+          
+          // 添加涟漪效果
+          point.classList.add('ripple');
+          
+          phoneScreen.appendChild(point);
+        } else if (operation.type === 'swipe') {
+          // 添加起点
+          const startPoint = document.createElement('div');
+          startPoint.className = 'operation-point swipe';
+          startPoint.style.left = `${operation.startX}%`;
+          startPoint.style.top = `${operation.startY}%`;
+          startPoint.setAttribute('data-id', operation.id);
+          phoneScreen.appendChild(startPoint);
+          
+          // 添加终点
+          const endPoint = document.createElement('div');
+          endPoint.className = 'operation-point swipe';
+          endPoint.style.left = `${operation.endX}%`;
+          endPoint.style.top = `${operation.endY}%`;
+          endPoint.setAttribute('data-id', operation.id);
+          phoneScreen.appendChild(endPoint);
+          
+          // 计算滑动线的角度和长度
+          const dx = operation.endX - operation.startX;
+          const dy = operation.endY - operation.startY;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+          
+          // 添加滑动线
+          const line = document.createElement('div');
+          line.className = 'swipe-line';
+          line.style.left = `${operation.startX}%`;
+          line.style.top = `${operation.startY}%`;
+          line.style.width = `${length}%`;
+          line.style.transform = `rotate(${angle}deg)`;
+          phoneScreen.appendChild(line);
+        }
+      });
+    }
+    
+    // 清除手机屏幕上的操作点
+    function clearPhoneScreen() {
+      while (phoneScreen.firstChild) {
+        phoneScreen.removeChild(phoneScreen.firstChild);
+      }
+    }
+    
+    // 高亮显示选中的操作
+    function highlightOperationOnScreen(id) {
+      document.querySelectorAll('.operation-point').forEach(point => {
+        point.classList.remove('active');
+        if (parseInt(point.getAttribute('data-id')) === id) {
+          point.classList.add('active');
+        }
+      });
+    }
+    
+    // 开始执行操作序列
+    function startOperations() {
+      if (operations.length === 0) {
+        showToast('请先添加操作');
+        return;
+      }
+      
+      isRunning = true;
+      isPaused = false;
+      currentOperationIndex = 0;
+      currentLoopIndex = 0;
+      
+      updateButtonStates();
+      updateProgress(0);
+      
+      const infiniteLoop = document.getElementById('infiniteLoop').checked;
+      const loopCount = parseInt(document.getElementById('globalLoopCount').value);
+      
+      statusText.textContent = '执行中...';
+      
+      executeNextOperation(infiniteLoop, loopCount);
+    }
+    
+    // 执行下一个操作
+    function executeNextOperation(infiniteLoop, loopCount) {
+      if (!isRunning || isPaused) return;
+      
+      // 检查是否完成所有循环
+      if (!infiniteLoop && currentLoopIndex >= loopCount) {
+        stopOperations();
+        showToast('操作序列执行完成');
+        return;
+      }
+      
+      // 检查是否需要开始新的循环
+      if (currentOperationIndex >= operations.length) {
+        currentOperationIndex = 0;
+        currentLoopIndex++;
+        
+        // 更新进度
+        const progress = (currentLoopIndex / loopCount) * 100;
+        updateProgress(progress);
+      }
+      
+      const operation = operations[currentOperationIndex];
+      currentOperationIndex++;
+      
+      // 高亮显示当前操作
+      highlightOperationOnScreen(operation.id);
+      
+      // 执行操作
+      animateOperation(operation, () => {
+        // 操作执行完成后，延迟执行下一个操作
+        const interval = parseFloat(document.getElementById('operationInterval').value) * 1000;
+        
+        setTimeout(() => {
+          executeNextOperation(infiniteLoop, loopCount);
+        }, interval);
+      });
+    }
+    
+    // 动画展示操作执行过程
+    function animateOperation(operation, callback) {
+      let element;
+      
+      switch (operation.type) {
+        case 'tap':
+          element = document.querySelector(`.operation-point[data-id="${operation.id}"]`);
+          if (element) {
+            // 添加点击动画
+            element.classList.add('scale-150', 'opacity-75', 'transition-all', 'duration-200');
+            
+            setTimeout(() => {
+              element.classList.remove('scale-150', 'opacity-75');
+              
+              // 如果是多次点击，模拟点击效果
+              const count = operation.count;
+              if (count === -1 || count > 1) {
+                const frequency = operation.frequency;
+                const interval = 1000 / frequency;
+                let tapIndex = 1;
+                
+                const tapInterval = setInterval(() => {
+                  element.classList.add('scale-150', 'opacity-75');
+                  setTimeout(() => {
+                    element.classList.remove('scale-150', 'opacity-75');
+                  }, interval / 2);
+                  
+                  tapIndex++;
+                  if (count !== -1 && tapIndex >= count) {
+                    clearInterval(tapInterval);
+                    setTimeout(callback, operation.delay * 1000);
+                  }
+                }, interval);
+              } else {
+                setTimeout(callback, operation.delay * 1000);
+              }
+            }, 200);
+          } else {
+            callback();
+          }
+          break;
+          
+        case 'longPress':
+          element = document.querySelector(`.operation-point[data-id="${operation.id}"]`);
+          if (element) {
+            // 添加长按动画
+            element.classList.add('scale-150', 'bg-opacity-75', 'transition-all', 'duration-200');
+            
+            setTimeout(() => {
+              element.classList.add('animate-pulse-slow');
+              
+              setTimeout(() => {
+                element.classList.remove('scale-150', 'bg-opacity-75', 'animate-pulse-slow');
+                setTimeout(callback, operation.delay * 1000);
+              }, operation.duration * 1000);
+            }, 200);
+          } else {
+            callback();
+          }
+          break;
+          
+        case 'swipe':
+          const startElement = document.querySelector(`.operation-point[data-id="${operation.id}"]`);
+          const endElement = startElement.nextElementSibling;
+          
+          if (startElement && endElement) {
+            // 创建滑动指示器
+            const indicator = document.createElement('div');
+            indicator.className = 'absolute w-6 h-6 rounded-full bg-warning opacity-75 shadow-lg';
+            indicator.style.left = `${operation.startX}%`;
+            indicator.style.top = `${operation.startY}%`;
+            indicator.style.transform = 'translate(-50%, -50%)';
+            phoneScreen.appendChild(indicator);
+            
+            // 计算滑动距离和时间
+            const dx = operation.endX - operation.startX;
+            const dy = operation.endY - operation.startY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const duration = (distance / operation.speed) * 1000;
+            
+            // 添加滑动动画
+            indicator.style.transition = `left ${duration}ms linear, top ${duration}ms linear`;
+            
+            setTimeout(() => {
+              indicator.style.left = `${operation.endX}%`;
+              indicator.style.top = `${operation.endY}%`;
+              
+              setTimeout(() => {
+                phoneScreen.removeChild(indicator);
+                
+                // 如果是多次滑动，模拟滑动效果
+                const count = operation.count;
+                if (count === -1 || count > 1) {
+                  let swipeIndex = 1;
+                  
+                  const swipeInterval = setInterval(() => {
+                    const newIndicator = document.createElement('div');
+                    newIndicator.className = 'absolute w-6 h-6 rounded-full bg-warning opacity-75 shadow-lg';
+                    newIndicator.style.left = `${operation.startX}%`;
+                    newIndicator.style.top = `${operation.startY}%`;
+                    newIndicator.style.transform = 'translate(-50%, -50%)';
+                    newIndicator.style.transition = `left ${duration}ms linear, top ${duration}ms linear`;
+                    phoneScreen.appendChild(newIndicator);
+                    
+                    setTimeout(() => {
+                      newIndicator.style.left = `${operation.endX}%`;
+                      newIndicator.style.top = `${operation.endY}%`;
+                      
+                      setTimeout(() => {
+                        phoneScreen.removeChild(newIndicator);
+                      }, duration);
+                    }, 10);
+                    
+                    swipeIndex++;
+                    if (count !== -1 && swipeIndex >= count) {
+                      clearInterval(swipeInterval);
+                      setTimeout(callback, operation.delay * 1000);
+                    }
+                  }, duration + 200);
+                } else {
+                  setTimeout(callback, operation.delay * 1000);
+                }
+              }, duration);
+            }, 10);
+          } else {
+            callback();
+          }
+          break;
+          
+        default:
+          callback();
+      }
+    }
+    
+    // 暂停执行操作序列
+    function pauseOperations() {
+      isPaused = true;
+      updateButtonStates();
+      statusText.textContent = '已暂停';
+    }
+    
+    // 继续执行操作序列
+    function resumeOperations() {
+      isPaused = false;
+      updateButtonStates();
+      statusText.textContent = '执行中...';
+      
+      const infiniteLoop = document.getElementById('infiniteLoop').checked;
+      const loopCount = parseInt(document.getElementById('globalLoopCount').value);
+      
+      executeNextOperation(infiniteLoop, loopCount);
+    }
+    
+    // 停止执行操作序列
+    function stopOperations() {
+      isRunning = false;
+      isPaused = false;
+      
+      if (operationTimer) {
+        clearTimeout(operationTimer);
+        operationTimer = null;
+      }
+      
+      updateButtonStates();
+      updateProgress(0);
+      statusText.textContent = '已停止';
+      
+      // 清除所有高亮
+      document.querySelectorAll('.operation-point').forEach(point => {
+        point.classList.remove('active');
+      });
+    }
+    
+    // 更新按钮状态
+    function updateButtonStates() {
+      startBtn.disabled = isRunning;
+      pauseBtn.disabled = !isRunning;
+      stopBtn.disabled = !isRunning;
+      
+      if (isPaused) {
+        pauseBtn.innerHTML = `
+          <i class="fa fa-play text-lg"></i>
+          <span class="text-xs mt-1">继续</span>
+        `;
+        pauseBtn.onclick = resumeOperations;
+      } else {
+        pauseBtn.innerHTML = `
+          <i class="fa fa-pause text-lg"></i>
+          <span class="text-xs mt-1">暂停</span>
+        `;
+        pauseBtn.onclick = pauseOperations;
+      }
+    }
+    
+    // 更新进度条
+    function updateProgress(percent) {
+      progressBar.style.width = `${percent}%`;
+      progressText.textContent = `${Math.round(percent)}%`;
+    }
+    
+    // 导出操作序列
+    function exportOperations() {
+      if (operations.length === 0) {
+        showToast('请先添加操作');
+        return;
+      }
+      
+      const data = {
+        operations,
+        settings: {
+          loopCount: document.getElementById('globalLoopCount').value,
+          infiniteLoop: document.getElementById('infiniteLoop').checked,
+          operationInterval: document.getElementById('operationInterval').value,
+          screenSize: document.getElementById('screenSizeSelect').value,
+          backgroundColor: phoneScreen.style.backgroundColor
+        },
+        exportedAt: new Date().toISOString()
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `auto-click-sequence-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showToast('操作序列已导出');
+    }
+    
+    // 保存操作序列
+    function saveSequence() {
+      if (operations.length === 0) {
+        showToast('请先添加操作');
+        return;
+      }
+      
+      showModal('保存操作序列', `
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">序列名称</label>
+          <input type="text" id="sequenceName" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="请输入序列名称">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">序列描述 (可选)</label>
+          <textarea id="sequenceDescription" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3" placeholder="请输入序列描述"></textarea>
+        </div>
+      `, () => {
+        const name = document.getElementById('sequenceName').value.trim() || `序列 ${new Date().toLocaleString()}`;
+        const description = document.getElementById('sequenceDescription').value.trim();
+        
+        const sequence = {
+          id: Date.now(),
+          name,
+          description,
+          operations: JSON.parse(JSON.stringify(operations)),
+          settings: {
+            loopCount: document.getElementById('globalLoopCount').value,
+            infiniteLoop: document.getElementById('infiniteLoop').checked,
+            operationInterval: document.getElementById('operationInterval').value,
+            screenSize: document.getElementById('screenSizeSelect').value,
+            backgroundColor: phoneScreen.style.backgroundColor
+          },
+          createdAt: new Date().toISOString()
+        };
+        
+        // 保存到本地存储
+        const savedSequences = JSON.parse(localStorage.getItem('autoClickSequences') || '[]');
+        savedSequences.push(sequence);
+        localStorage.setItem('autoClickSequences', JSON.stringify(savedSequences));
+        
+        closeModal();
+        showToast('操作序列已保存');
+      });
+    }
+    
+    // 加载操作序列
+    function loadSequence() {
+      const savedSequences = JSON.parse(localStorage.getItem('autoClickSequences') || '[]');
+      
+      if (savedSequences.length === 0) {
+        showToast('没有保存的操作序列');
+        return;
+      }
+      
+      let content = `
+        <div class="max-h-64 overflow-y-auto mb-4">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作数</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+      `;
+      
+      savedSequences.forEach((sequence, index) => {
+        const date = new Date(sequence.createdAt).toLocaleString();
+        
+        content += `
+          <tr class="hover:bg-gray-50 cursor-pointer load-sequence" data-index="${index}">
+            <td class="px-3 py-2 whitespace-nowrap">
+              <div class="font-medium text-sm">${sequence.name}</div>
+              ${sequence.description ? `<div class="text-xs text-gray-500 truncate max-w-[150px]">${sequence.description}</div>` : ''}
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap text-sm">${sequence.operations.length}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${date}</td>
+          </tr>
+        `;
+      });
+      
+      content += `
+            </tbody>
+          </table>
+        </div>
+        <div class="text-sm text-gray-500">
+          点击序列名称加载，或拖拽JSON文件到此处导入
+        </div>
+      `;
+      
+      showModal('加载操作序列', content, null);
+      
+      // 添加加载序列事件
+      document.querySelectorAll('.load-sequence').forEach(row => {
+        row.addEventListener('click', () => {
+          const index = parseInt(row.getAttribute('data-index'));
+          const sequence = savedSequences[index];
+          
+          operations = JSON.parse(JSON.stringify(sequence.operations));
+          operationIdCounter = Math.max(...operations.map(op => op.id)) + 1;
+          
+          // 恢复设置
+          document.getElementById('globalLoopCount').value = sequence.settings.loopCount;
+          document.getElementById('infiniteLoop').checked = sequence.settings.infiniteLoop;
+          document.getElementById('operationInterval').value = sequence.settings.operationInterval;
+          document.getElementById('operationIntervalValue').textContent = sequence.settings.operationInterval;
+          document.getElementById('screenSizeSelect').value = sequence.settings.screenSize;
+          phoneScreen.style.backgroundColor = sequence.settings.backgroundColor;
+          
+          // 更新UI
+          updateOperationList();
+          updatePhoneScreen();
+          changeScreenSize();
+          
+          closeModal();
+          showToast('操作序列已加载');
+        });
+      });
+      
+      // 添加文件拖拽导入
+      const modalContent = document.getElementById('modalContent');
+      
+      modalContent.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        modalContent.classList.add('bg-blue-50');
+      });
+      
+      modalContent.addEventListener('dragleave', () => {
+        modalContent.classList.remove('bg-blue-50');
+      });
+      
+      modalContent.addEventListener('drop', (e) => {
+        e.preventDefault();
+        modalContent.classList.remove('bg-blue-50');
+        
+        const file = e.dataTransfer.files[0];
+        if (file && file.type === 'application/json') {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = JSON.parse(e.target.result);
+              
+              if (data.operations && Array.isArray(data.operations)) {
+                operations = data.operations;
+                operationIdCounter = Math.max(...operations.map(op => op.id)) + 1;
+                
+                // 恢复设置
+                if (data.settings) {
+                  document.getElementById('globalLoopCount').value = data.settings.loopCount || 1;
+                  document.getElementById('infiniteLoop').checked = data.settings.infiniteLoop || false;
+                  document.getElementById('operationInterval').value = data.settings.operationInterval || 0.5;
+                  document.getElementById('operationIntervalValue').textContent = data.settings.operationInterval || 0.5;
+                  document.getElementById('screenSizeSelect').value = data.settings.screenSize || 'medium';
+                  phoneScreen.style.backgroundColor = data.settings.backgroundColor || '#f3f4f6';
+                }
+                
+                // 更新UI
+                updateOperationList();
+                updatePhoneScreen();
+                changeScreenSize();
+                
+                closeModal();
+                showToast('操作序列已导入');
+              } else {
+                showToast('无效的操作序列文件');
+              }
+            } catch (error) {
+              showToast('导入失败：' + error.message);
+            }
+          };
+          reader.readAsText(file);
+        } else {
+          showToast('请选择JSON格式的操作序列文件');
+        }
+      });
+    }
+    
+    // 更改屏幕尺寸
+    function changeScreenSize() {
+      const phoneFrame = document.querySelector('.phone-frame');
+      const size = document.getElementById('screenSizeSelect').value;
+      
+      switch (size) {
+        case 'small':
+          phoneFrame.style.width = '280px';
+          phoneFrame.style.height = '560px';
+          break;
+        case 'medium':
+          phoneFrame.style.width = '320px';
+          phoneFrame.style.height = '640px';
+          break;
+        case 'large':
+          phoneFrame.style.width = '360px';
+          phoneFrame.style.height = '720px';
+          break;
+      }
+      
+      // 更新操作点位置
+      updatePhoneScreen();
+    }
+    
+    // 辅助函数：RGB颜色转十六进制
+    function rgbToHex(rgb) {
+      // rgb格式: "rgb(r, g, b)"
+      const values = rgb.match(/\d+/g);
+      return "#" + ((1 << 24) + (parseInt(values[0]) << 16) + (parseInt(values[1]) << 8) + parseInt(values[2])).toString(16).slice(1);
+    }
+    
+    // 辅助函数：十六进制颜色转RGB
+    function hexToRgb(hex) {
+      // 移除#号
+      hex = hex.replace('#', '');
+      
+      // 解析RGB值
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+  </script>
+</body>
 </html>
